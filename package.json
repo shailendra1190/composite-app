@@ -1,0 +1,17 @@
+{
+  "name": "shopify-composite-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Multi-store Shopify composite product app foundation",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "mysql2": "^3.12.0"
+  }
+}
