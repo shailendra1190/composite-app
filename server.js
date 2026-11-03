@@ -13,7 +13,13 @@ app.use("/", routes);
 app.get("/", (req, res) => {
   const shop = String(req.query.shop || "").toLowerCase();
   if (/^[a-zA-Z0-9][a-zA-Z0-9-]*\.myshopify\.com$/.test(shop)) {
-    return res.redirect(`/admin?shop=${encodeURIComponent(shop)}`);
+    // Keep Shopify's launch context intact across this same-origin redirect.
+    // URL parsing and serialization preserve unknown parameters while safely
+    // encoding values in the Location header.
+    const launchUrl = new URL(req.originalUrl, "http://localhost");
+    const adminUrl = new URL("/admin", "http://localhost");
+    adminUrl.search = launchUrl.search;
+    return res.redirect(`${adminUrl.pathname}${adminUrl.search}`);
   }
   res.type("html").send(`<!doctype html>
 <html lang="en">
@@ -39,6 +45,10 @@ app.use((err, req, res, next) => {
 });
 
 const port = Number(process.env.PORT || 3000);
-app.listen(port, "0.0.0.0", () => {
-  console.log(`Shopify Composite App listening on port ${port}`);
-});
+if (require.main === module) {
+  app.listen(port, "0.0.0.0", () => {
+    console.log(`Shopify Composite App listening on port ${port}`);
+  });
+}
+
+module.exports = app;
