@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS shops (
   access_token_encrypted TEXT NULL,
   scopes TEXT NULL,
   installed_at DATETIME NULL,
+  installation_generation_at DATETIME(6) NULL,
   uninstalled_at DATETIME NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

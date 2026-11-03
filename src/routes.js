@@ -7,6 +7,7 @@ const {
 } = require("./shopify");
 
 const router = express.Router();
+router.use(require("./admin"));
 const STATE_COOKIE = "shopify_oauth_state";
 
 function parseCookies(header = "") {
@@ -104,7 +105,8 @@ router.get("/auth/callback", async (req, res) => {
 
     const tokenData = await tokenResponse.json();
     if (!tokenResponse.ok || !tokenData.access_token) {
-      console.error("Shopify token exchange failed:", tokenData);
+      // Never log response bodies from credential endpoints.
+      console.error(`Shopify token exchange failed with HTTP status ${tokenResponse.status}.`);
       return res.status(502).send("Shopify could not complete installation. Please try again.");
     }
 
@@ -113,12 +115,13 @@ router.get("/auth/callback", async (req, res) => {
 
     await pool.execute(
       `INSERT INTO shops
-        (shop_domain, access_token_encrypted, scopes, installed_at, uninstalled_at)
-       VALUES (?, ?, ?, NOW(), NULL)
+        (shop_domain, access_token_encrypted, scopes, installed_at, installation_generation_at, uninstalled_at)
+       VALUES (?, ?, ?, NOW(), UTC_TIMESTAMP(6), NULL)
        ON DUPLICATE KEY UPDATE
         access_token_encrypted = VALUES(access_token_encrypted),
         scopes = VALUES(scopes),
         installed_at = NOW(),
+        installation_generation_at = UTC_TIMESTAMP(6),
         uninstalled_at = NULL`,
       [shop, encryptedToken, scopes]
     );
@@ -126,7 +129,8 @@ router.get("/auth/callback", async (req, res) => {
     clearStateCookie(res);
     res.redirect(`${getAppUrl()}/?shop=${encodeURIComponent(shop)}&installed=1`);
   } catch (error) {
-    console.error("Shopify OAuth callback failed:", error);
+    // Errors from the token exchange or persistence path can carry sensitive context.
+    console.error("Shopify OAuth callback failed during installation processing.");
     res.status(500).send("Installation could not be completed. Check the app logs or contact support.");
   }
 });

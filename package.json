@@ -6,7 +6,10 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "migrate:status": "node scripts/migrate.js status",
+    "migrate:up": "node scripts/migrate.js up",
+    "test": "node test/run.js"
   },
   "engines": { "node": ">=20" },
   "dependencies": {

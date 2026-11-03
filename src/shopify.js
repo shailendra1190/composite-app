@@ -12,7 +12,16 @@ function getAppUrl() {
 }
 
 function getScopes() {
-  return requiredEnv("SHOPIFY_SCOPES");
+  const configured = requiredEnv("SHOPIFY_SCOPES")
+    .split(",")
+    .map((scope) => scope.trim())
+    .filter(Boolean);
+  if (!configured.includes("read_products")) {
+    throw new Error("SHOPIFY_SCOPES must include read_products for the Admin product picker.");
+  }
+  // This milestone only reads products and variants; don't request unused grants
+  // even if a host still has the former broader example value configured.
+  return "read_products";
 }
 
 function isValidShop(shop) {
@@ -73,7 +82,35 @@ function decryptAccessToken(payload) {
   ]).toString("utf8");
 }
 
+function verifySessionToken(token, expectedShop) {
+  if (typeof token !== "string" || token.length > 12000) return false;
+  const parts = token.split(".");
+  if (parts.length !== 3) return false;
+  const [headerPart, payloadPart, signaturePart] = parts;
+  try {
+    const header = JSON.parse(Buffer.from(headerPart, "base64url").toString("utf8"));
+    const claims = JSON.parse(Buffer.from(payloadPart, "base64url").toString("utf8"));
+    if (header.alg !== "HS256" || header.typ !== "JWT") return false;
+    const expected = crypto.createHmac("sha256", requiredEnv("SHOPIFY_API_SECRET"))
+      .update(`${headerPart}.${payloadPart}`).digest();
+    const supplied = Buffer.from(signaturePart, "base64url");
+    if (expected.length !== supplied.length || !crypto.timingSafeEqual(expected, supplied)) return false;
+
+    const now = Math.floor(Date.now() / 1000);
+    const shop = String(expectedShop || "").toLowerCase();
+    const dest = new URL(claims.dest);
+    return claims.aud === requiredEnv("SHOPIFY_API_KEY") &&
+      claims.iss === `https://${shop}/admin` &&
+      dest.protocol === "https:" && dest.hostname.toLowerCase() === shop &&
+      !dest.username && !dest.password && !dest.port && dest.pathname === "/" &&
+      Number.isFinite(claims.exp) && claims.exp > now &&
+      Number.isFinite(claims.nbf) && claims.nbf <= now;
+  } catch {
+    return false;
+  }
+}
+
 module.exports = {
   requiredEnv, getAppUrl, getScopes, isValidShop,
-  verifyCallbackHmac, encryptAccessToken, decryptAccessToken
+  verifyCallbackHmac, encryptAccessToken, decryptAccessToken, verifySessionToken
 };
